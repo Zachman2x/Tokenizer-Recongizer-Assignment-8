@@ -1,15 +1,18 @@
+// CMSC 304 - TokenType 
 public enum TokenType {
-    VARTYPE,
-    RETURN_KEYWORD,
-    PRINT_KEYWORD,
-
-    IDENTIFIER,
-    NUMBER,
-
-    LEFT_PARENTHESIS, RIGHT_PARENTHESIS,
-    LEFT_BRACKET, RIGHT_BRACKET,
-    LEFT_BRACE, RIGHT_BRACE,
-    COMMA, SEMICOLON, ASSIGN, PLUS, MINUS, STAR, SLASH,
+    LEFT_PARENTHESIS,    // (
+    RIGHT_PARENTHESIS,   // )
+    LEFT_BRACKET,        // {
+    RIGHT_BRACKET,       // }
+    COMMA,               // ,
+    EOL,                 // ;
+    EQUAL,               // =
+    WHILE_KEYWORD,       // while
+    RETURN_KEYWORD,      // return
+    VARTYPE,             // int | void
+    IDENTIFIER,          // [a-zA-Z][a-zA-Z0-9]*
+    BINOP,               // + | * | != | == | %
+    NUMBER,              // [0-9][0-9]*
 
     EOF
 }

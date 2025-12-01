@@ -1,6 +1,7 @@
+// CMSC 304 - Token
 public class Token {
-    public TokenType type;
-    public String lexeme;
+    public final TokenType type;
+    public final String lexeme;
 
     public Token(TokenType type, String lexeme) {
         this.type = type;
@@ -9,6 +10,6 @@ public class Token {
 
     @Override
     public String toString() {
-        return type + " " + lexeme;
+        return type.name() + " " + lexeme;
     }
 }
