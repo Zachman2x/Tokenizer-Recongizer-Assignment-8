@@ -1,263 +1,128 @@
 // CMSC 304 - Recognizer
-import java.io.*;
 import java.util.*;
 
 public class Recognizer {
-    static List<Token> tokens = new ArrayList<>();
-    static int index = 0;
-    static PrintWriter out = null;
 
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.out.println("Usage: java Recognizer <tokensfile> <outputfile>");
-            System.exit(0);
-        }
+    private final List<Token> tokens;
+    private int index = 0;
 
-        String inPath = args[0];
-        String outPath = args[1];
-
-        try (BufferedReader br = new BufferedReader(new FileReader(inPath))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
-                int firstSpace = line.indexOf(' ');
-                if (firstSpace == -1) {
-                    String tokName = line.trim();
-                    tokens.add(new Token(TokenType.valueOf(tokName), ""));
-                } else {
-                    String tokName = line.substring(0, firstSpace);
-                    String lexeme = line.substring(firstSpace + 1);
-                    tokens.add(new Token(TokenType.valueOf(tokName), lexeme));
-                }
-            }
-        }
-        tokens.add(new Token(TokenType.EOF, ""));
-
-        out = new PrintWriter(new FileWriter(outPath));
-        function();
-
-        int consumed = index; 
-        int total = tokens.size() - 1;
-        if (consumed != total) {
-            // Error messages
-            out.println("Error: Only consumed " + consumed + " of the " + total + " given tokens");
-            out.close();
-            System.exit(0);
-        }
-
-        out.println("PARSED!!!");
-        out.close();
+    public Recognizer(List<Token> tokens) {
+        this.tokens = tokens;
     }
 
-    static Token la() {
+    private Token peek() {
         return tokens.get(index);
     }
-    static Token consume() {
+
+    private Token advance() {
         return tokens.get(index++);
     }
-    static boolean match(TokenType t) {
-        if (la().type == t) { consume(); return true; }
+
+    private boolean match(TokenType type) {
+        if (peek().type == type) {
+            advance();
+            return true;
+        }
         return false;
     }
 
-    static void errorExpectedToken(String rule, int tokenNumberOneBased, TokenType expected, TokenType actual) {
-        out.println("Error: In grammar rule " + rule + ", expected token #" + tokenNumberOneBased +
-                " to be " + expected.name() + " but was " + actual.name());
-        out.close();
+    private void expect(TokenType type, String msg) {
+        if (!match(type)) {
+            error("Expected " + type + " but got " + peek().type + " → " + msg);
+        }
+    }
+
+    private void error(String msg) {
+        System.out.println(msg);
         System.exit(0);
     }
 
-    static void errorMissingNonTerminal(String rule) {
-        out.println("Error: In grammar rule " + rule + ", expected a valid body non-terminal to be present but was not.");
-        out.close();
-        System.exit(0);
+    // Grammar: function → header body
+    public void recognize() {
+        parseFunction();
+        if (peek().type != TokenType.EOF)
+            error("Only consumed part of the file — extra tokens remain.");
     }
 
-    static void function() {
-        header();
-        body();
+    private void parseFunction() {
+        parseHeader();
+        parseBody();
     }
 
-    static void header() {
-        // VARTYPE
-        if (la().type != TokenType.VARTYPE) {
-            errorExpectedToken("header", index + 1, TokenType.VARTYPE, la().type);
+    private void parseHeader() {
+        expect(TokenType.VARTYPE, "function return type");
+        expect(TokenType.IDENTIFIER, "function name");
+        expect(TokenType.LEFT_PARENTHESIS, "(");
+
+        if (peek().type == TokenType.VARTYPE) {
+            parseArgDecl();
         }
-        consume();
-        if (la().type != TokenType.IDENTIFIER) {
-            errorExpectedToken("header", index + 1, TokenType.IDENTIFIER, la().type);
-        }
-        consume();
-        if (la().type != TokenType.LEFT_PARENTHESIS) {
-            errorExpectedToken("header", index + 1, TokenType.LEFT_PARENTHESIS, la().type);
-        }
-        consume();
-        if (la().type == TokenType.VARTYPE) {
-            arg_decl();
-        }
-        if (la().type != TokenType.RIGHT_PARENTHESIS) {
-            errorExpectedToken("header", index + 1, TokenType.RIGHT_PARENTHESIS, la().type);
-        }
-        consume();
+
+        expect(TokenType.RIGHT_PARENTHESIS, ")");
     }
 
-    static void arg_decl() {
-        // first pair
-        if (la().type != TokenType.VARTYPE) {
-            errorMissingNonTerminal("arg-decl");
-        }
-        consume();
+    private void parseArgDecl() {
+        expect(TokenType.VARTYPE, "argument type");
+        expect(TokenType.IDENTIFIER, "argument name");
 
-        if (la().type != TokenType.IDENTIFIER) {
-            errorExpectedToken("arg-decl", index + 1, TokenType.IDENTIFIER, la().type);
-        }
-        consume();
-
-        while (la().type == TokenType.COMMA) {
-            consume(); // COMMA
-            if (la().type != TokenType.VARTYPE) {
-                errorExpectedToken("arg-decl", index + 1, TokenType.VARTYPE, la().type);
-            }
-            consume();
-            if (la().type != TokenType.IDENTIFIER) {
-                errorExpectedToken("arg-decl", index + 1, TokenType.IDENTIFIER, la().type);
-            }
-            consume();
+        while (match(TokenType.COMMA)) {
+            expect(TokenType.VARTYPE, "argument type");
+            expect(TokenType.IDENTIFIER, "argument name");
         }
     }
 
-    static void body() {
-        if (la().type != TokenType.LEFT_BRACKET) {
-            errorExpectedToken("body", index + 1, TokenType.LEFT_BRACKET, la().type);
-        }
-        consume();
+    private void parseBody() {
+        expect(TokenType.LEFT_BRACKET, "{");
 
-        if (la().type == TokenType.WHILE_KEYWORD ||
-            la().type == TokenType.RETURN_KEYWORD ||
-            la().type == TokenType.IDENTIFIER) {
-            statement_list();
+        while (peek().type == TokenType.WHILE_KEYWORD ||
+               peek().type == TokenType.RETURN_KEYWORD ||
+               peek().type == TokenType.IDENTIFIER) {
+            parseStatement();
         }
 
-        if (la().type != TokenType.RIGHT_BRACKET) {
-            errorExpectedToken("body", index + 1, TokenType.RIGHT_BRACKET, la().type);
-        }
-        consume();
+        expect(TokenType.RIGHT_BRACKET, "}");
     }
 
-    static void statement_list() {
-        if (!startOfStatement(la().type)) {
-            errorMissingNonTerminal("statement-list");
+    private void parseStatement() {
+        if (match(TokenType.WHILE_KEYWORD)) {
+            expect(TokenType.LEFT_PARENTHESIS, "(");
+            parseExpression();
+            expect(TokenType.RIGHT_PARENTHESIS, ")");
+            parseBody();
+            return;
         }
-        while (startOfStatement(la().type)) {
-            statement();
+
+        if (match(TokenType.RETURN_KEYWORD)) {
+            parseExpression();
+            expect(TokenType.EOL, ";");
+            return;
         }
+
+        expect(TokenType.IDENTIFIER, "assignment identifier");
+        expect(TokenType.EQUAL, "=");
+        parseExpression();
+        expect(TokenType.EOL, ";");
     }
 
-    static boolean startOfStatement(TokenType t) {
-        return t == TokenType.WHILE_KEYWORD || t == TokenType.RETURN_KEYWORD || t == TokenType.IDENTIFIER;
-    }
+    private void parseExpression() {
+        parseTerm();
 
-    static void statement() {
-        TokenType t = la().type;
-        if (t == TokenType.WHILE_KEYWORD) {
-            while_loop();
-        } else if (t == TokenType.RETURN_KEYWORD) {
-            return_stmt();
-        } else if (t == TokenType.IDENTIFIER) {
-            assignment();
-        } else {
-            errorMissingNonTerminal("statement");
-        }
-    }
-
-    // while-loop --> WHILE_KEYWORD LEFT_PARENTHESIS expression RIGHT_PARENTHESIS body
-    static void while_loop() {
-        if (la().type != TokenType.WHILE_KEYWORD) {
-            errorExpectedToken("while-loop", index + 1, TokenType.WHILE_KEYWORD, la().type);
-        }
-        consume();
-
-        if (la().type != TokenType.LEFT_PARENTHESIS) {
-            errorExpectedToken("while-loop", index + 1, TokenType.LEFT_PARENTHESIS, la().type);
-        }
-        consume();
-
-        expression();
-
-        if (la().type != TokenType.RIGHT_PARENTHESIS) {
-            errorExpectedToken("while-loop", index + 1, TokenType.RIGHT_PARENTHESIS, la().type);
-        }
-        consume();
-
-        body();
-    }
-
-    // return --> RETURN_KEYWORD expression EOL
-    static void return_stmt() {
-        if (la().type != TokenType.RETURN_KEYWORD) {
-            errorExpectedToken("return", index + 1, TokenType.RETURN_KEYWORD, la().type);
-        }
-        consume();
-
-        expression();
-
-        if (la().type != TokenType.EOL) {
-            errorExpectedToken("return", index + 1, TokenType.EOL, la().type);
-        }
-        consume();
-    }
-
-    // assignment --> IDENTIFIER EQUAL expression EOL
-    static void assignment() {
-        if (la().type != TokenType.IDENTIFIER) {
-            errorExpectedToken("assignment", index + 1, TokenType.IDENTIFIER, la().type);
-        }
-        consume();
-
-        if (la().type != TokenType.EQUAL) {
-            errorExpectedToken("assignment", index + 1, TokenType.EQUAL, la().type);
-        }
-        consume();
-
-        expression();
-
-        if (la().type != TokenType.EOL) {
-            errorExpectedToken("assignment", index + 1, TokenType.EOL, la().type);
-        }
-        consume();
-    }
-
-    // expression --> factor expression'
-    // factor --> IDENTIFIER | NUMBER | LEFT_PARENTHESIS expression RIGHT_PARENTHESIS
-    // expression' --> BINOP factor expression' | epsilon
-    static void expression() {
-        factor();
-        expressionPrime();
-    }
-
-    static void expressionPrime() {
-        while (la().type == TokenType.BINOP) {
-            consume(); // BINOP
-            factor();
+        while (peek().type == TokenType.BINOP) {
+            advance();
+            parseTerm();
         }
     }
 
-    static void factor() {
-        TokenType t = la().type;
-        if (t == TokenType.IDENTIFIER) {
-            consume();
-        } else if (t == TokenType.NUMBER) {
-            consume();
-        } else if (t == TokenType.LEFT_PARENTHESIS) {
-            consume();
-            expression();
-            if (la().type != TokenType.RIGHT_PARENTHESIS) {
-                errorExpectedToken("expression", index + 1, TokenType.RIGHT_PARENTHESIS, la().type);
-            }
-            consume();
-        } else {
-            // non-terminal expected but not found
-            errorMissingNonTerminal("expression");
+    private void parseTerm() {
+        if (match(TokenType.IDENTIFIER)) return;
+        if (match(TokenType.NUMBER)) return;
+
+        if (match(TokenType.LEFT_PARENTHESIS)) {
+            parseExpression();
+            expect(TokenType.RIGHT_PARENTHESIS, ")");
+            return;
         }
+
+        error("Invalid term: " + peek().lexeme);
     }
 }

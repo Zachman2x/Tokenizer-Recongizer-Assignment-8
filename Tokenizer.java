@@ -4,178 +4,129 @@ import java.util.*;
 
 public class Tokenizer {
 
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            // Gradescope requires exactly two command-line args
-            System.out.println("Usage: java Tokenizer <inputfile> <outputfile>");
-            System.exit(0);
-        }
+    private final String input;
+    private final List<String> lexemes = new ArrayList<>();
 
-        String inPath = args[0];
-        String outPath = args[1];
-
-        StringBuilder src = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(new FileReader(inPath))) {
-            int r;
-            while ((r = br.read()) != -1) {
-                src.append((char) r);
-            }
-        }
-
-        List<String> lexemes = generateLexemes(src.toString());
-        List<Token> tokens = classifyLexemes(lexemes);
-
-        try (PrintWriter pw = new PrintWriter(new FileWriter(outPath))) {
-            for (Token t : tokens) {
-                pw.println(t.toString());
-            }
-        }
+    public Tokenizer(String input) {
+        this.input = input;
     }
 
-    // Generate lexemes by going through each character.
-    static List<String> generateLexemes(String s) {
-        List<String> lexemes = new ArrayList<>();
-        StringBuilder buffer = new StringBuilder();
-
+    public void scan() {
+        StringBuilder current = new StringBuilder();
         int i = 0;
-        while (i < s.length()) {
-            char c = s.charAt(i);
 
+        while (i < input.length()) {
+            char c = input.charAt(i);
+
+            // Whitespace → delimiter
             if (Character.isWhitespace(c)) {
-                if (buffer.length() > 0) {
-                    lexemes.add(buffer.toString());
-                    buffer.setLength(0);
+                flush(current);
+                i++;
+                continue;
+            }
+
+            // Symbol lexemes (may be multi-character)
+            if (isSymbolStart(c)) {
+                flush(current);
+
+                if (i + 1 < input.length()) {
+                    String two = "" + c + input.charAt(i + 1);
+                    if (isTwoCharSymbol(two)) {
+                        lexemes.add(two);
+                        i += 2;
+                        continue;
+                    }
                 }
+
+                lexemes.add("" + c);
                 i++;
                 continue;
             }
 
-            if (Character.isLetter(c) || Character.isDigit(c)) {
-                buffer.append(c);
-                i++;
-                continue;
-            }
-
-            if (buffer.length() > 0) {
-                lexemes.add(buffer.toString());
-                buffer.setLength(0);
-            }
-
-            if ((c == '!' || c == '=') && i + 1 < s.length()) {
-                char nxt = s.charAt(i + 1);
-                if (c == '!' && nxt == '=') {
-                    lexemes.add("!=");
-                    i += 2;
-                    continue;
-                } else if (c == '=' && nxt == '=') {
-                    lexemes.add("==");
-                    i += 2;
-                    continue;
-                }
-            }
-
-            if (c == '(' || c == ')' || c == '{' || c == '}' || c == ',' ||
-                c == ';' || c == '=' || c == '+' || c == '*' || c == '%') {
-                lexemes.add(String.valueOf(c));
-                i++;
-                continue;
-            }
-
-            lexemes.add(String.valueOf(c));
+            // Alphanumeric lexeme
+            current.append(c);
             i++;
         }
 
-        if (buffer.length() > 0) {
-            lexemes.add(buffer.toString());
-        }
-
-        return lexemes;
+        flush(current);
     }
 
-    // Map lexemes (strings) to token classes. No regex used.
-    static List<Token> classifyLexemes(List<String> lexemes) {
+    private void flush(StringBuilder sb) {
+        if (sb.length() > 0) {
+            lexemes.add(sb.toString());
+            sb.setLength(0);
+        }
+    }
+
+    private boolean isSymbolStart(char c) {
+        return "(){}=,;!*+%".indexOf(c) >= 0;
+    }
+
+    private boolean isTwoCharSymbol(String s) {
+        return s.equals("==") || s.equals("!=");
+    }
+
+    public List<Token> toTokens() {
         List<Token> tokens = new ArrayList<>();
 
         for (String lex : lexemes) {
-            if (lex.equals("while")) {
-                tokens.add(new Token(TokenType.WHILE_KEYWORD, lex));
-                continue;
-            }
-            if (lex.equals("return")) {
-                tokens.add(new Token(TokenType.RETURN_KEYWORD, lex));
-                continue;
-            }
-            if (lex.equals("int") || lex.equals("void")) {
-                tokens.add(new Token(TokenType.VARTYPE, lex));
-                continue;
-            }
-
-            // Constant assignemnts
-            switch (lex) {
-                case "(":
-                    tokens.add(new Token(TokenType.LEFT_PARENTHESIS, lex));
-                    continue;
-                case ")":
-                    tokens.add(new Token(TokenType.RIGHT_PARENTHESIS, lex));
-                    continue;
-                case "{":
-                    tokens.add(new Token(TokenType.LEFT_BRACKET, lex));
-                    continue;
-                case "}":
-                    tokens.add(new Token(TokenType.RIGHT_BRACKET, lex));
-                    continue;
-                case ",":
-                    tokens.add(new Token(TokenType.COMMA, lex));
-                    continue;
-                case ";":
-                    tokens.add(new Token(TokenType.EOL, lex));
-                    continue;
-                case "=":
-                    tokens.add(new Token(TokenType.EQUAL, lex));
-                    continue;
-                case "+":
-                case "*":
-                case "%":
-                    tokens.add(new Token(TokenType.BINOP, lex));
-                    continue;
-                case "==":
-                case "!=":
-                    tokens.add(new Token(TokenType.BINOP, lex));
-                    continue;
-                default:
-            }
-
-            if (isNumber(lex)) {
-                tokens.add(new Token(TokenType.NUMBER, lex));
-                continue;
-            }
-
-            if (isIdentifier(lex)) {
-                tokens.add(new Token(TokenType.IDENTIFIER, lex));
-                continue;
-            }
-            tokens.add(new Token(TokenType.IDENTIFIER, lex));
+            tokens.add(new Token(matchType(lex), lex));
         }
 
+        tokens.add(new Token(TokenType.EOF, ""));
         return tokens;
     }
 
-    static boolean isNumber(String s) {
-        if (s.length() == 0) return false;
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) return false;
+    private TokenType matchType(String lex) {
+        switch (lex) {
+            case "(": return TokenType.LEFT_PARENTHESIS;
+            case ")": return TokenType.RIGHT_PARENTHESIS;
+            case "{": return TokenType.LEFT_BRACKET;
+            case "}": return TokenType.RIGHT_BRACKET;
+            case "=": return TokenType.EQUAL;
+            case ",": return TokenType.COMMA;
+            case ";": return TokenType.EOL;
+            case "while": return TokenType.WHILE_KEYWORD;
+            case "return": return TokenType.RETURN_KEYWORD;
+            case "int":
+            case "void": return TokenType.VARTYPE;
         }
+
+        if (lex.equals("+") || lex.equals("*") ||
+            lex.equals("!=") || lex.equals("==") || lex.equals("%")) {
+            return TokenType.BINOP;
+        }
+
+        if (isNumber(lex)) return TokenType.NUMBER;
+
+        return TokenType.IDENTIFIER;
+    }
+
+    private boolean isNumber(String lex) {
+        for (char c : lex.toCharArray())
+            if (!Character.isDigit(c)) return false;
         return true;
     }
 
-    static boolean isIdentifier(String s) {
-        if (s.length() == 0) return false;
-        char first = s.charAt(0);
-        if (!Character.isLetter(first)) return false;
-        for (int i = 1; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (!Character.isLetterOrDigit(c)) return false;
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.out.println("Usage: java Tokenizer <input> <output>");
+            return;
         }
-        return true;
+
+        String input = new String(java.nio.file.Files.readAllBytes(
+                java.nio.file.Paths.get(args[0])
+        ));
+
+        Tokenizer tokenizer = new Tokenizer(input);
+        tokenizer.scan();
+        List<Token> tokens = tokenizer.toTokens();
+
+        PrintWriter out = new PrintWriter(args[1]);
+        for (Token t : tokens) {
+            if (t.type == TokenType.EOF) continue;
+            out.println(t.type + " " + t.lexeme);
+        }
+        out.close();
     }
 }
