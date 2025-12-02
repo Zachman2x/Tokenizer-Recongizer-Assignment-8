@@ -1,11 +1,69 @@
 // CMSC 304 - Recognizer
 import java.util.*;
+import java.io.*;
 
 public class Recognizer {
 
     private final List<Common> tokens;
     private int index = 0;
+    private PrintWriter writer;
 
+    public Recognizer(List<Common> tokens, PrintWriter writer) {
+        this.tokens = tokens;
+        this.writer = writer;
+    }
+    public static void main(String[] args) {
+        if (args.length != 2) {
+            System.out.println("Usage: java Recognizer <inputFile> <outputFile>");
+            return;
+        }
+
+        String inputPath = args[0];
+        String outputPath = args[1];
+
+        List<Common> tokenList = new ArrayList<>();
+
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(inputPath));
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                // Input line: IDENTIFIER  hello
+                String[] parts = line.split("\\s+", 2);
+                Common.TokenType type = Common.TokenType.valueOf(parts[0]);
+                String lexeme = (parts.length > 1) ? parts[1] : "";
+                tokenList.add(new Common(type, lexeme));
+            }
+        
+
+            br.close();
+            PrintWriter writer = new PrintWriter(new FileWriter(outputPath));
+
+            Recognizer recognizer = new Recognizer(tokenList, writer);
+            recognizer.recognize();
+
+            if (recognizer.index != recognizer.tokens.size()) {
+                int consumed = recognizer.index;
+                int total = recognizer.tokens.size();
+                writer.println("Error: Only consumed " + consumed +
+                               " of the " + total + " given tokens");
+                writer.flush();
+                System.exit(0);
+            }
+
+            // If reached here, parsing succeeded
+            writer.println("PARSED!!!");
+            writer.flush();
+            writer.close();
+
+        } catch (IOException e) {
+            System.out.println("File error: " + e.getMessage());
+        }
+    }
+    
     public Recognizer(List<Common> tokens) {
         this.tokens = tokens;
     }
@@ -33,7 +91,8 @@ public class Recognizer {
     }
 
     private void error(String msg) {
-        System.out.println(msg);
+        writer.println(msg);
+        writer.flush();
         System.exit(0);
     }
 
