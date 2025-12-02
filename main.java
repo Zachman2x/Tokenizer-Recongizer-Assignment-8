@@ -4,7 +4,6 @@ import java.nio.file.*;
 import java.util.*;
 
 public class Main {
-
     public static void main(String[] args) throws Exception {
 
         File testFolder = new File("testfiles");
