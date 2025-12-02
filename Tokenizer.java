@@ -66,40 +66,40 @@ public class Tokenizer {
         return s.equals("==") || s.equals("!=");
     }
 
-    public List<Token> toTokens() {
-        List<Token> tokens = new ArrayList<>();
+    public List<Common> toTokens() {
+        List<Common> tokens = new ArrayList<>();
 
         for (String lex : lexemes) {
-            tokens.add(new Token(matchType(lex), lex));
+            tokens.add(new Common(matchType(lex), lex));
         }
 
-        tokens.add(new Token(TokenType.EOF, ""));
+        tokens.add(new Common(Common.TokenType.EOF, ""));
         return tokens;
     }
 
-    private TokenType matchType(String lex) {
+    private Common.TokenType matchType(String lex) {
         switch (lex) {
-            case "(": return TokenType.LEFT_PARENTHESIS;
-            case ")": return TokenType.RIGHT_PARENTHESIS;
-            case "{": return TokenType.LEFT_BRACKET;
-            case "}": return TokenType.RIGHT_BRACKET;
-            case "=": return TokenType.EQUAL;
-            case ",": return TokenType.COMMA;
-            case ";": return TokenType.EOL;
-            case "while": return TokenType.WHILE_KEYWORD;
-            case "return": return TokenType.RETURN_KEYWORD;
+            case "(": return Common.TokenType.LEFT_PARENTHESIS;
+            case ")": return Common.TokenType.RIGHT_PARENTHESIS;
+            case "{": return Common.TokenType.LEFT_BRACKET;
+            case "}": return Common.TokenType.RIGHT_BRACKET;
+            case "=": return Common.TokenType.EQUAL;
+            case ",": return Common.TokenType.COMMA;
+            case ";": return Common.TokenType.EOL;
+            case "while": return Common.TokenType.WHILE_KEYWORD;
+            case "return": return Common.TokenType.RETURN_KEYWORD;
             case "int":
-            case "void": return TokenType.VARTYPE;
+            case "void": return Common.TokenType.VARTYPE;
         }
 
         if (lex.equals("+") || lex.equals("*") ||
             lex.equals("!=") || lex.equals("==") || lex.equals("%")) {
-            return TokenType.BINOP;
+            return Common.TokenType.BINOP;
         }
 
-        if (isNumber(lex)) return TokenType.NUMBER;
+        if (isNumber(lex)) return Common.TokenType.NUMBER;
 
-        return TokenType.IDENTIFIER;
+        return Common.TokenType.IDENTIFIER;
     }
 
     private boolean isNumber(String lex) {
@@ -120,11 +120,11 @@ public class Tokenizer {
 
         Tokenizer tokenizer = new Tokenizer(input);
         tokenizer.scan();
-        List<Token> tokens = tokenizer.toTokens();
+        List<Common> tokens = tokenizer.toTokens();
 
         PrintWriter out = new PrintWriter(args[1]);
-        for (Token t : tokens) {
-            if (t.type == TokenType.EOF) continue;
+        for (Common t : tokens) {
+            if (t.type == Common.TokenType.EOF) continue;
             out.println(t.type + " " + t.lexeme);
         }
         out.close();

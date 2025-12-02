@@ -22,7 +22,7 @@ public class Main {
             // Tokenize
             Tokenizer tokenizer = new Tokenizer(input);
             tokenizer.scan();
-            List<Token> tokens = tokenizer.toTokens();
+            List<Common> tokens = tokenizer.toTokens();
 
             // Recognize
             Recognizer recognizer = new Recognizer(tokens);

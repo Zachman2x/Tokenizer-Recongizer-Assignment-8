@@ -1,6 +1,6 @@
-// CMSC 304 - TokenType 
 
-public enum TokenType {
+public class Common {
+    public enum TokenType {
     LEFT_PARENTHESIS,   // (
     RIGHT_PARENTHESIS,  // )
     LEFT_BRACKET,       // {
@@ -15,6 +15,19 @@ public enum TokenType {
     BINOP,              // + | * | != | == | %
     NUMBER,             // [0-9][0-9]*
     EOF                 // end of file
+    }
+    public final TokenType type;
+    public final String lexeme;
+
+    public Common(TokenType type, String lexeme) {
+        this.type = type;
+        this.lexeme = lexeme;
+    }
+
+    @Override
+    public String toString() {
+        return type + " " + lexeme;
+    }
 }
 
 

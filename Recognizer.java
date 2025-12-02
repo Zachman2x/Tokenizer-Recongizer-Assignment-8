@@ -3,22 +3,22 @@ import java.util.*;
 
 public class Recognizer {
 
-    private final List<Token> tokens;
+    private final List<Common> tokens;
     private int index = 0;
 
-    public Recognizer(List<Token> tokens) {
+    public Recognizer(List<Common> tokens) {
         this.tokens = tokens;
     }
 
-    private Token peek() {
+    private Common peek() {
         return tokens.get(index);
     }
 
-    private Token advance() {
+    private Common advance() {
         return tokens.get(index++);
     }
 
-    private boolean match(TokenType type) {
+    private boolean match(Common.TokenType type) {
         if (peek().type == type) {
             advance();
             return true;
@@ -26,7 +26,7 @@ public class Recognizer {
         return false;
     }
 
-    private void expect(TokenType type, String msg) {
+    private void expect(Common.TokenType type, String msg) {
         if (!match(type)) {
             error("Expected " + type + " but got " + peek().type + " → " + msg);
         }
@@ -40,7 +40,7 @@ public class Recognizer {
     // Grammar: function → header body
     public void recognize() {
         parseFunction();
-        if (peek().type != TokenType.EOF)
+        if (peek().type != Common.TokenType.EOF)
             error("Only consumed part of the file — extra tokens remain.");
     }
 
@@ -50,76 +50,76 @@ public class Recognizer {
     }
 
     private void parseHeader() {
-        expect(TokenType.VARTYPE, "function return type");
-        expect(TokenType.IDENTIFIER, "function name");
-        expect(TokenType.LEFT_PARENTHESIS, "(");
+        expect(Common.TokenType.VARTYPE, "function return type");
+        expect(Common.TokenType.IDENTIFIER, "function name");
+        expect(Common.TokenType.LEFT_PARENTHESIS, "(");
 
-        if (peek().type == TokenType.VARTYPE) {
+        if (peek().type == Common.TokenType.VARTYPE) {
             parseArgDecl();
         }
 
-        expect(TokenType.RIGHT_PARENTHESIS, ")");
+        expect(Common.TokenType.RIGHT_PARENTHESIS, ")");
     }
 
     private void parseArgDecl() {
-        expect(TokenType.VARTYPE, "argument type");
-        expect(TokenType.IDENTIFIER, "argument name");
+        expect(Common.TokenType.VARTYPE, "argument type");
+        expect(Common.TokenType.IDENTIFIER, "argument name");
 
-        while (match(TokenType.COMMA)) {
-            expect(TokenType.VARTYPE, "argument type");
-            expect(TokenType.IDENTIFIER, "argument name");
+        while (match(Common.TokenType.COMMA)) {
+            expect(Common.TokenType.VARTYPE, "argument type");
+            expect(Common.TokenType.IDENTIFIER, "argument name");
         }
     }
 
     private void parseBody() {
-        expect(TokenType.LEFT_BRACKET, "{");
+        expect(Common.TokenType.LEFT_BRACKET, "{");
 
-        while (peek().type == TokenType.WHILE_KEYWORD ||
-               peek().type == TokenType.RETURN_KEYWORD ||
-               peek().type == TokenType.IDENTIFIER) {
+        while (peek().type == Common.TokenType.WHILE_KEYWORD ||
+               peek().type == Common.TokenType.RETURN_KEYWORD ||
+               peek().type == Common.TokenType.IDENTIFIER) {
             parseStatement();
         }
 
-        expect(TokenType.RIGHT_BRACKET, "}");
+        expect(Common.TokenType.RIGHT_BRACKET, "}");
     }
 
     private void parseStatement() {
-        if (match(TokenType.WHILE_KEYWORD)) {
-            expect(TokenType.LEFT_PARENTHESIS, "(");
+        if (match(Common.TokenType.WHILE_KEYWORD)) {
+            expect(Common.TokenType.LEFT_PARENTHESIS, "(");
             parseExpression();
-            expect(TokenType.RIGHT_PARENTHESIS, ")");
+            expect(Common.TokenType.RIGHT_PARENTHESIS, ")");
             parseBody();
             return;
         }
 
-        if (match(TokenType.RETURN_KEYWORD)) {
+        if (match(Common.TokenType.RETURN_KEYWORD)) {
             parseExpression();
-            expect(TokenType.EOL, ";");
+            expect(Common.TokenType.EOL, ";");
             return;
         }
 
-        expect(TokenType.IDENTIFIER, "assignment identifier");
-        expect(TokenType.EQUAL, "=");
+        expect(Common.TokenType.IDENTIFIER, "assignment identifier");
+        expect(Common.TokenType.EQUAL, "=");
         parseExpression();
-        expect(TokenType.EOL, ";");
+        expect(Common.TokenType.EOL, ";");
     }
 
     private void parseExpression() {
         parseTerm();
 
-        while (peek().type == TokenType.BINOP) {
+        while (peek().type == Common.TokenType.BINOP) {
             advance();
             parseTerm();
         }
     }
 
     private void parseTerm() {
-        if (match(TokenType.IDENTIFIER)) return;
-        if (match(TokenType.NUMBER)) return;
+        if (match(Common.TokenType.IDENTIFIER)) return;
+        if (match(Common.TokenType.NUMBER)) return;
 
-        if (match(TokenType.LEFT_PARENTHESIS)) {
+        if (match(Common.TokenType.LEFT_PARENTHESIS)) {
             parseExpression();
-            expect(TokenType.RIGHT_PARENTHESIS, ")");
+            expect(Common.TokenType.RIGHT_PARENTHESIS, ")");
             return;
         }
 
