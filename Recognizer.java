@@ -12,6 +12,11 @@ public class Recognizer {
         this.tokens = tokens;
         this.writer = writer;
     }
+
+    public Recognizer(List<Common> tokens) {
+        this.tokens = tokens;
+    }
+
     public static void main(String[] args) {
         if (args.length != 2) {
             System.out.println("Usage: java Recognizer <inputFile> <outputFile>");
@@ -31,13 +36,11 @@ public class Recognizer {
                 line = line.trim();
                 if (line.isEmpty()) continue;
 
-                // Input line: IDENTIFIER  hello
                 String[] parts = line.split("\\s+", 2);
                 Common.TokenType type = Common.TokenType.valueOf(parts[0]);
                 String lexeme = (parts.length > 1) ? parts[1] : "";
                 tokenList.add(new Common(type, lexeme));
             }
-        
 
             br.close();
             PrintWriter writer = new PrintWriter(new FileWriter(outputPath));
@@ -54,7 +57,6 @@ public class Recognizer {
                 System.exit(0);
             }
 
-            // If reached here, parsing succeeded
             writer.println("PARSED!!!");
             writer.flush();
             writer.close();
@@ -63,20 +65,23 @@ public class Recognizer {
             System.out.println("File error: " + e.getMessage());
         }
     }
-    
-    public Recognizer(List<Common> tokens) {
-        this.tokens = tokens;
-    }
 
     private Common peek() {
+        if (index >= tokens.size()) {
+            error("Error: Attempted to peek past end of token stream at token #" + index);
+        }
         return tokens.get(index);
     }
 
     private Common advance() {
+        if (index >= tokens.size()) {
+            error("Error: Attempted to advance past end of token stream at token #" + index);
+        }
         return tokens.get(index++);
     }
 
     private boolean match(Common.TokenType type) {
+        if (index >= tokens.size()) return false;
         if (peek().type == type) {
             advance();
             return true;
@@ -84,23 +89,48 @@ public class Recognizer {
         return false;
     }
 
-    private void expect(Common.TokenType type, String msg) {
-        if (!match(type)) {
-            error("Expected " + type + " but got " + peek().type + " → " + msg);
+    private void expectToken(String rule, Common.TokenType expected) {
+        if (index >= tokens.size()) {
+            writer.println("Error: In grammar rule " + rule +
+                           ", expected token #" + index +
+                           " to be " + expected +
+                           " but was EOF");
+            writer.flush();
+            System.exit(0);
         }
+
+        Common.TokenType actual = peek().type;
+        if (actual != expected) {
+            writer.println("Error: In grammar rule " + rule +
+                           ", expected token #" + index +
+                           " to be " + expected +
+                           " but was " + actual);
+            writer.flush();
+            System.exit(0);
+        }
+
+        advance();
     }
 
+    // Non-terminal missing error
+    private void nonTerminalError(String rule, String nonterm) {
+        writer.println("Error: In grammar rule " + rule +
+                       ", expected a valid " + nonterm +
+                       " non-terminal to be present but was not.");
+        writer.flush();
+        System.exit(0);
+    }
+
+    // Generic error 
     private void error(String msg) {
         writer.println(msg);
         writer.flush();
         System.exit(0);
     }
 
-    // Grammar: function → header body
+
     public void recognize() {
         parseFunction();
-        if (peek().type != Common.TokenType.EOF)
-            error("Only consumed part of the file — extra tokens remain.");
     }
 
     private void parseFunction() {
@@ -109,64 +139,71 @@ public class Recognizer {
     }
 
     private void parseHeader() {
-        expect(Common.TokenType.VARTYPE, "function return type");
-        expect(Common.TokenType.IDENTIFIER, "function name");
-        expect(Common.TokenType.LEFT_PARENTHESIS, "(");
 
-        if (peek().type == Common.TokenType.VARTYPE) {
+        expectToken("function", Common.TokenType.VARTYPE);
+        expectToken("function", Common.TokenType.IDENTIFIER);
+        expectToken("function", Common.TokenType.LEFT_PARENTHESIS);
+
+        if (index < tokens.size() && peek().type == Common.TokenType.VARTYPE) {
             parseArgDecl();
         }
 
-        expect(Common.TokenType.RIGHT_PARENTHESIS, ")");
+        expectToken("function", Common.TokenType.RIGHT_PARENTHESIS);
     }
 
     private void parseArgDecl() {
-        expect(Common.TokenType.VARTYPE, "argument type");
-        expect(Common.TokenType.IDENTIFIER, "argument name");
+        expectToken("argument", Common.TokenType.VARTYPE);
+        expectToken("argument", Common.TokenType.IDENTIFIER);
 
         while (match(Common.TokenType.COMMA)) {
-            expect(Common.TokenType.VARTYPE, "argument type");
-            expect(Common.TokenType.IDENTIFIER, "argument name");
+            expectToken("argument", Common.TokenType.VARTYPE);
+            expectToken("argument", Common.TokenType.IDENTIFIER);
         }
     }
 
     private void parseBody() {
-        expect(Common.TokenType.LEFT_BRACKET, "{");
+        expectToken("body", Common.TokenType.LEFT_BRACKET);
 
-        while (peek().type == Common.TokenType.WHILE_KEYWORD ||
-               peek().type == Common.TokenType.RETURN_KEYWORD ||
-               peek().type == Common.TokenType.IDENTIFIER) {
+        while (index < tokens.size() &&
+               (peek().type == Common.TokenType.WHILE_KEYWORD ||
+                peek().type == Common.TokenType.RETURN_KEYWORD ||
+                peek().type == Common.TokenType.IDENTIFIER)) {
             parseStatement();
         }
 
-        expect(Common.TokenType.RIGHT_BRACKET, "}");
+        expectToken("body", Common.TokenType.RIGHT_BRACKET);
     }
 
     private void parseStatement() {
         if (match(Common.TokenType.WHILE_KEYWORD)) {
-            expect(Common.TokenType.LEFT_PARENTHESIS, "(");
+            expectToken("while", Common.TokenType.LEFT_PARENTHESIS);
             parseExpression();
-            expect(Common.TokenType.RIGHT_PARENTHESIS, ")");
+            expectToken("while", Common.TokenType.RIGHT_PARENTHESIS);
             parseBody();
             return;
         }
 
         if (match(Common.TokenType.RETURN_KEYWORD)) {
             parseExpression();
-            expect(Common.TokenType.EOL, ";");
+            expectToken("return", Common.TokenType.EOL);
             return;
         }
 
-        expect(Common.TokenType.IDENTIFIER, "assignment identifier");
-        expect(Common.TokenType.EQUAL, "=");
-        parseExpression();
-        expect(Common.TokenType.EOL, ";");
+        if (peek().type == Common.TokenType.IDENTIFIER) {
+            expectToken("assignment", Common.TokenType.IDENTIFIER);
+            expectToken("assignment", Common.TokenType.EQUAL);
+            parseExpression();
+            expectToken("assignment", Common.TokenType.EOL);
+            return;
+        }
+
+        nonTerminalError("function", "statement");
     }
 
     private void parseExpression() {
         parseTerm();
 
-        while (peek().type == Common.TokenType.BINOP) {
+        while (index < tokens.size() && peek().type == Common.TokenType.BINOP) {
             advance();
             parseTerm();
         }
@@ -178,10 +215,19 @@ public class Recognizer {
 
         if (match(Common.TokenType.LEFT_PARENTHESIS)) {
             parseExpression();
-            expect(Common.TokenType.RIGHT_PARENTHESIS, ")");
+            expectToken("term", Common.TokenType.RIGHT_PARENTHESIS);
             return;
         }
 
-        error("Invalid term: " + peek().lexeme);
+        if (index >= tokens.size()) {
+            writer.println("Error: In grammar rule term, expected token #" + index + " to be one of IDENTIFIER, NUMBER, or LEFT_PARENTHESIS but was EOF");
+            writer.flush();
+            System.exit(0);
+        } else {
+            Common.TokenType actual = peek().type;
+            writer.println("Error: In grammar rule term, expected token #" + index + " to be one of IDENTIFIER, NUMBER, or LEFT_PARENTHESIS but was " + actual);
+            writer.flush();
+            System.exit(0);
+        }
     }
 }
